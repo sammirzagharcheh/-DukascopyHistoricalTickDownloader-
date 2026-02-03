@@ -1,0 +1,20 @@
+namespace HistoricalData.Export;
+
+public sealed class SummaryReport
+{
+    public long Ticks { get; set; }
+    public long Bars { get; set; }
+    public long M1FallbackBars { get; set; }
+    public long MissingHours { get; set; }
+    public long HoursProcessed { get; set; }
+
+    public void Print()
+    {
+        Console.WriteLine("Summary:");
+        Console.WriteLine($"  Hours processed: {HoursProcessed}");
+        Console.WriteLine($"  Missing hours:   {MissingHours}");
+        Console.WriteLine($"  Ticks:           {Ticks}");
+        Console.WriteLine($"  Bars:            {Bars}");
+        Console.WriteLine($"  M1 fallback bars:{M1FallbackBars}");
+    }
+}

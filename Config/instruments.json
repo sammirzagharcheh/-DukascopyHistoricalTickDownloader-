@@ -1,0 +1,12 @@
+{
+  "digits": {
+    "EURUSD": 5,
+    "GBPUSD": 5,
+    "USDJPY": 3,
+    "AUDUSD": 5,
+    "USDCAD": 5,
+    "USDCHF": 5,
+    "NZDUSD": 5,
+    "EURJPY": 3
+  }
+}
