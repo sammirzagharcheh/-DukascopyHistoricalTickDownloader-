@@ -21,6 +21,11 @@ public sealed class InstrumentConfig
         return Digits.TryGetValue(instrument, out var digits) ? digits : 5;
     }
 
+    public bool TryGetDigits(string instrument, out int digits)
+    {
+        return Digits.TryGetValue(instrument, out digits);
+    }
+
     public static InstrumentConfig Load(string path)
     {
         if (!File.Exists(path))

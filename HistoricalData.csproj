@@ -10,4 +10,8 @@
   <ItemGroup>
     <PackageReference Include="SevenZip" Version="19.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="HistoricalData.Tests\**\*.cs" />
+  </ItemGroup>
 </Project>
