@@ -4,7 +4,7 @@ namespace HistoricalData.Export;
 
 public sealed class BarAggregator
 {
-    private readonly Dictionary<DateTimeOffset, BarBuilder> _bars = new();
+    private readonly Dictionary<long, BarBuilder> _bars = new();
     private readonly int _digits;
     private readonly double _scale;
     private readonly TimeSpan _utcOffset;
@@ -38,11 +38,12 @@ public sealed class BarAggregator
             return;
         }
 
-        var minuteTime = new DateTimeOffset(serverTime.Year, serverTime.Month, serverTime.Day, serverTime.Hour, serverTime.Minute, 0, _utcOffset);
-        if (!_bars.TryGetValue(minuteTime, out var builder))
+        var minuteKey = GetMinuteKey(serverTime);
+        if (!_bars.TryGetValue(minuteKey, out var builder))
         {
+            var minuteTime = DateTimeOffset.FromUnixTimeSeconds(minuteKey * 60).ToOffset(_utcOffset);
             builder = new BarBuilder(minuteTime, _scale);
-            _bars[minuteTime] = builder;
+            _bars[minuteKey] = builder;
         }
 
         builder.AddTick(tick, serverTime);
@@ -61,11 +62,12 @@ public sealed class BarAggregator
             return;
         }
 
-        var minuteTime = new DateTimeOffset(serverTime.Year, serverTime.Month, serverTime.Day, serverTime.Hour, serverTime.Minute, 0, _utcOffset);
-        if (!_bars.TryGetValue(minuteTime, out var builder))
+        var minuteKey = GetMinuteKey(serverTime);
+        if (!_bars.TryGetValue(minuteKey, out var builder))
         {
+            var minuteTime = DateTimeOffset.FromUnixTimeSeconds(minuteKey * 60).ToOffset(_utcOffset);
             builder = new BarBuilder(minuteTime, _scale);
-            _bars[minuteTime] = builder;
+            _bars[minuteKey] = builder;
         }
 
         builder.MergeBar(bar);
@@ -88,6 +90,11 @@ public sealed class BarAggregator
     private bool IsInRange(DateTimeOffset time)
     {
         return time >= _startServer && time <= _endServer;
+    }
+
+    private static long GetMinuteKey(DateTimeOffset time)
+    {
+        return time.ToUnixTimeSeconds() / 60;
     }
 
     private sealed class BarBuilder

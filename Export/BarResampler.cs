@@ -15,7 +15,13 @@ public static class BarResampler
         Bar? current = null;
         DateTimeOffset currentBucket = default;
 
-        foreach (var bar in bars.OrderBy(b => b.Time))
+        var orderedBars = bars;
+        if (!IsSorted(orderedBars))
+        {
+            orderedBars = orderedBars.OrderBy(b => b.Time).ToList();
+        }
+
+        foreach (var bar in orderedBars)
         {
             var bucket = new DateTimeOffset(
                 bar.Time.Year,
@@ -63,5 +69,18 @@ public static class BarResampler
         }
 
         return result;
+    }
+
+    private static bool IsSorted(IReadOnlyList<Bar> bars)
+    {
+        for (var i = 1; i < bars.Count; i++)
+        {
+            if (bars[i - 1].Time > bars[i].Time)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
