@@ -9,8 +9,9 @@ public static class HstWriter
 
     public static void Write(string path, IEnumerable<Bar> bars, string symbol, int digits, int timeframeMinutes)
     {
-        using var stream = File.Create(path);
-        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: false);
+        using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 64, FileOptions.SequentialScan);
+        using var bufferedStream = new BufferedStream(fileStream, 1024 * 64);
+        using var writer = new BinaryWriter(bufferedStream, Encoding.ASCII, leaveOpen: false);
 
         WriteHeader(writer, symbol, digits, timeframeMinutes);
         foreach (var bar in bars)

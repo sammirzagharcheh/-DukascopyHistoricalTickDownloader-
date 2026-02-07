@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using HistoricalData.Models;
 
 namespace HistoricalData.Export;
@@ -7,7 +8,7 @@ public static class CsvWriter
 {
     public static void Write(string path, IEnumerable<Bar> bars)
     {
-        using var writer = new StreamWriter(path);
+        using var writer = new StreamWriter(path, append: false, encoding: Encoding.UTF8, bufferSize: 1024 * 64);
         foreach (var bar in bars)
         {
             var date = bar.Time.DateTime.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);

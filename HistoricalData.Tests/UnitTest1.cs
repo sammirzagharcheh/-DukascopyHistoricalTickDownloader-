@@ -29,6 +29,19 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void BarAggregator_FiltersWeekendBars()
+    {
+        var saturday = new DateTimeOffset(2025, 1, 4, 0, 0, 0, TimeSpan.Zero);
+        var end = saturday.AddMinutes(1);
+        var aggregator = new BarAggregator("m1", 5, TimeSpan.Zero, filterWeekends: true, saturday, end);
+
+        aggregator.AddTick(new Tick(saturday.AddSeconds(5), 1.11111, 1.11121, 1.0f, 1.0f));
+
+        var bars = aggregator.GetBars();
+        Assert.Empty(bars);
+    }
+
+    [Fact]
     public void BarResampler_AggregatesToFiveMinutes()
     {
         var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -50,6 +63,27 @@ public sealed class CoreTests
         Assert.Equal(33, bar.Volume);
         Assert.Equal(3, bar.Spread);
         Assert.Equal(10, bar.RealVolume);
+    }
+
+    [Fact]
+    public void BarResampler_SortsWhenInputUnordered()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var bars = new List<Bar>
+        {
+            new(start.AddMinutes(2), 1.2, 1.3, 1.1, 1.25, 12, 2, 3),
+            new(start, 1.0, 1.1, 0.9, 1.05, 10, 1, 2),
+            new(start.AddMinutes(1), 1.05, 1.2, 1.0, 1.15, 11, 2, 3)
+        };
+
+        var resampled = BarResampler.Resample(bars, 5);
+        Assert.Single(resampled);
+        Assert.Equal(start, resampled[0].Time);
+        Assert.Equal(1.0, resampled[0].Open);
+        Assert.Equal(1.3, resampled[0].High);
+        Assert.Equal(0.9, resampled[0].Low);
+        Assert.Equal(1.25, resampled[0].Close);
+        Assert.Equal(33, resampled[0].Volume);
     }
 
     [Fact]

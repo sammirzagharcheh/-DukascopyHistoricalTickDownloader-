@@ -18,12 +18,14 @@ public sealed class DukascopyClient
     private readonly DataPool.DataPool _pool;
     private readonly HttpClient _httpClient;
     private readonly bool _verbose;
+    private readonly int _maxConcurrency;
 
     public DukascopyClient(HttpConfig config, string poolPath, bool verbose)
     {
         _config = config;
         _pool = new DataPool.DataPool(poolPath);
         _verbose = verbose;
+        _maxConcurrency = Math.Max(2, Math.Min(8, Environment.ProcessorCount));
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(_config.TimeoutSeconds)
@@ -40,25 +42,66 @@ public sealed class DukascopyClient
         SummaryReport summary,
         CancellationToken cancellationToken = default)
     {
+        var aggregateLock = new object();
+        var summaryLock = new object();
+        var semaphore = new SemaphoreSlim(_maxConcurrency);
+        var tasks = new List<Task>();
+
         foreach (var hourUtc in TimeRangeUtils.EnumerateHours(startUtc, endUtc))
         {
-            summary.HoursProcessed++;
+            await semaphore.WaitAsync(cancellationToken);
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    await ProcessHourAsync(hourUtc);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }, cancellationToken));
+        }
+
+        await Task.WhenAll(tasks);
+
+        async Task ProcessHourAsync(DateTimeOffset hourUtc)
+        {
+            lock (summaryLock)
+            {
+                summary.HoursProcessed++;
+            }
+
             var outcome = await DownloadToPoolAsync(instrument, hourUtc, TickFileSuffix, cancellationToken);
             if (outcome.Success && outcome.LocalPath is not null)
             {
                 var ticks = await ReadTicksAsync(outcome.LocalPath, hourUtc, digits, cancellationToken);
-                foreach (var tick in ticks)
+                if (ticks.Count > 0)
                 {
-                    aggregator.AddTick(tick);
-                    summary.Ticks++;
+                    lock (aggregateLock)
+                    {
+                        foreach (var tick in ticks)
+                        {
+                            aggregator.AddTick(tick);
+                        }
+                    }
+
+                    lock (summaryLock)
+                    {
+                        summary.Ticks += ticks.Count;
+                    }
                 }
 
-                continue;
+                return;
             }
 
             if (outcome.NotFound)
             {
-                summary.MissingHours++;
+                lock (summaryLock)
+                {
+                    summary.MissingHours++;
+                }
+
                 if (_verbose)
                 {
                     Console.WriteLine($"Missing ticks for {instrument} {hourUtc:yyyy-MM-dd HH}:00Z");
@@ -67,8 +110,22 @@ public sealed class DukascopyClient
 
             if (fallbackToM1)
             {
-            var fallbackBars = await DownloadM1BarsForDay(instrument, hourUtc.Date, digits, aggregator, cancellationToken);
-            summary.M1FallbackBars += fallbackBars;
+                var fallbackBars = await DownloadM1BarsForDayData(instrument, hourUtc.Date, digits, cancellationToken);
+                if (fallbackBars.Count > 0)
+                {
+                    lock (aggregateLock)
+                    {
+                        foreach (var bar in fallbackBars)
+                        {
+                            aggregator.AddBar(bar);
+                        }
+                    }
+
+                    lock (summaryLock)
+                    {
+                        summary.M1FallbackBars += fallbackBars.Count;
+                    }
+                }
             }
         }
     }
@@ -82,26 +139,65 @@ public sealed class DukascopyClient
         SummaryReport summary,
         CancellationToken cancellationToken = default)
     {
+        var aggregateLock = new object();
+        var summaryLock = new object();
+        var semaphore = new SemaphoreSlim(_maxConcurrency);
+        var tasks = new List<Task>();
+
         foreach (var dayUtc in TimeRangeUtils.EnumerateDays(startUtc, endUtc))
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    await ProcessDayAsync(dayUtc);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }, cancellationToken));
+        }
+
+        await Task.WhenAll(tasks);
+
+        async Task ProcessDayAsync(DateTimeOffset dayUtc)
         {
             var dayStart = new DateTimeOffset(dayUtc.UtcDateTime, TimeSpan.Zero);
             var dayEnd = dayStart.AddDays(1).AddTicks(-1);
             var hourCount = CountHoursInRange(dayStart, dayEnd, startUtc, endUtc);
-            summary.HoursProcessed += hourCount;
 
-            var bars = await DownloadM1BarsForDay(instrument, dayStart, digits, aggregator, cancellationToken);
-            if (bars == 0)
+            lock (summaryLock)
             {
-                summary.MissingHours += hourCount;
+                summary.HoursProcessed += hourCount;
+            }
+
+            var bars = await DownloadM1BarsForDayData(instrument, dayStart, digits, cancellationToken);
+            if (bars.Count == 0)
+            {
+                lock (summaryLock)
+                {
+                    summary.MissingHours += hourCount;
+                }
+
+                return;
+            }
+
+            lock (aggregateLock)
+            {
+                foreach (var bar in bars)
+                {
+                    aggregator.AddBar(bar);
+                }
             }
         }
     }
 
-    private async Task<int> DownloadM1BarsForDay(
+    private async Task<IReadOnlyList<Bar>> DownloadM1BarsForDayData(
         string instrument,
         DateTimeOffset dayUtc,
         int digits,
-        BarAggregator aggregator,
         CancellationToken cancellationToken)
     {
         var outcome = await DownloadDailyToPoolAsync(instrument, dayUtc, M1DayFileName, cancellationToken);
@@ -112,18 +208,10 @@ public sealed class DukascopyClient
                 Console.WriteLine($"Missing M1 bars for {instrument} {dayUtc:yyyy-MM-dd}");
             }
 
-            return 0;
+            return Array.Empty<Bar>();
         }
 
-        var bars = await ReadBarsAsync(outcome.LocalPath, dayUtc, digits, cancellationToken);
-        var count = 0;
-        foreach (var bar in bars)
-        {
-            aggregator.AddBar(bar);
-            count++;
-        }
-
-        return count;
+        return await ReadBarsAsync(outcome.LocalPath, dayUtc, digits, cancellationToken);
     }
 
     private async Task<DownloadOutcome> DownloadToPoolAsync(
@@ -270,21 +358,26 @@ public sealed class DukascopyClient
                 Console.WriteLine($"Downloading {url}");
             }
 
-            using var response = await _httpClient.GetAsync(url, cancellationToken);
+            using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return DownloadResult.CreateNotFound();
             }
 
             response.EnsureSuccessStatusCode();
-            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-            if (bytes.Length == 0)
+            var tempPath = localPath + ".tmp";
+            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 64, useAsync: true))
+            {
+                await input.CopyToAsync(output, cancellationToken);
+            }
+
+            var info = new FileInfo(tempPath);
+            if (!info.Exists || info.Length == 0)
             {
                 return DownloadResult.Failure("Downloaded file is empty.");
             }
 
-            var tempPath = localPath + ".tmp";
-            await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken);
             File.Move(tempPath, localPath, overwrite: true);
             return DownloadResult.CreateSuccess();
         }
@@ -297,15 +390,21 @@ public sealed class DukascopyClient
     private static async Task<IReadOnlyList<Tick>> ReadTicksAsync(string path, DateTimeOffset hourUtc, int digits, CancellationToken cancellationToken)
     {
         var compressed = await File.ReadAllBytesAsync(path, cancellationToken);
-        var data = DecompressLzma(compressed);
-        return ParseTicks(data, hourUtc, digits);
+        return await Task.Run(() =>
+        {
+            var data = DecompressLzma(compressed);
+            return ParseTicks(data, hourUtc, digits);
+        }, cancellationToken);
     }
 
     private static async Task<IReadOnlyList<Bar>> ReadBarsAsync(string path, DateTimeOffset hourUtc, int digits, CancellationToken cancellationToken)
     {
         var compressed = await File.ReadAllBytesAsync(path, cancellationToken);
-        var data = DecompressLzma(compressed);
-        return ParseBars(data, hourUtc, digits);
+        return await Task.Run(() =>
+        {
+            var data = DecompressLzma(compressed);
+            return ParseBars(data, hourUtc, digits);
+        }, cancellationToken);
     }
 
     internal static IReadOnlyList<Tick> ParseTicks(ReadOnlySpan<byte> data, DateTimeOffset hourUtc, int digits)
