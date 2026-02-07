@@ -8,6 +8,61 @@ C# console app that downloads Dukascopy historical tick data (.bi5 LZMA), conver
 
 ## Usage
 
+## End User Guide (Setup and Run)
+
+### Option A: Download a Release (recommended)
+
+1. Go to the GitHub Releases page (latest stable: [releases/latest](../../releases/latest)).
+2. Download the zip for your platform from the latest release:
+   - `HistoricalData-win-x64.zip`
+   - `HistoricalData-linux-x64.zip`
+   - `HistoricalData-osx-x64.zip`
+3. Extract the zip to a folder.
+4. Run the app:
+   - Windows: double-click `HistoricalData.exe` or run it from Command Prompt.
+   - Linux/macOS: run `./HistoricalData` from a terminal.
+
+### Option B: Build from Source
+
+1. Install the .NET 10 SDK.
+2. Open a terminal in the project folder.
+3. Run:
+
+```text
+dotnet run --project HistoricalData.csproj
+```
+
+### Quick Start Example
+
+```text
+dotnet run --project HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-01T01:00:00Z --timeframe m15 --mode ticks --format csv --offset +00:00 --pool ./DataPool --output ./output --no-prompt
+```
+
+### Output Files
+
+After a successful run, output files are written to the `output` folder:
+
+- `SYMBOL_TIMEFRAME.csv`
+- `SYMBOL_TIMEFRAME.hst` (if `--format csv+hst` was selected)
+
+### Common Options
+
+- `--instrument` Currency pair (example: `EURUSD`)
+- `--start` Start time in ISO 8601
+- `--end` End time in ISO 8601
+- `--timeframe` `m1|m5|m15|m30|h1`
+- `--mode` `ticks` or `direct`
+- `--format` `csv` or `csv+hst`
+- `--offset` UTC offset (example: `+02:00`)
+- `--pool` Data pool cache folder
+- `--output` Output folder
+
+### Tips
+
+- If you get a Windows SmartScreen warning, click “More info” → “Run anyway.”
+- Large date ranges take time; start with a short range to verify settings.
+- Use `--help` to list all options.
+
 ### Interactive
 
 Run without arguments to be prompted for:
@@ -120,6 +175,35 @@ The HST file uses version 501 with this layout:
 
 Times are aligned using the configured UTC offset, and prices are rounded
 to the symbol digits from config/instruments.json.
+
+## Release Builds (GitHub Actions)
+
+When a GitHub Release is published, a workflow builds self-contained binaries for:
+
+- win-x64
+- linux-x64
+- osx-x64
+
+Each publish folder is zipped and attached to the release as:
+
+- `HistoricalData-win-x64.zip`
+- `HistoricalData-linux-x64.zip`
+- `HistoricalData-osx-x64.zip`
+
+### Optional Signing
+
+Windows `.exe` signing uses a PFX certificate. To enable signing, add these GitHub Secrets:
+
+- `SIGNING_PFX`: base64-encoded PFX file
+- `SIGNING_PFX_PASSWORD`: PFX password
+
+If the secrets are not set, the workflow skips signing.
+
+To generate the base64 value locally (PowerShell):
+
+```text
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("path\\to\\certificate.pfx"))
+```
 
 ## Tests
 
