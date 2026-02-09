@@ -39,6 +39,8 @@ public sealed class DukascopyClient
         int digits,
         bool fallbackToM1,
         bool refreshCache,
+        bool verifyChecksum,
+        int recentRefreshDays,
         BarAggregator aggregator,
         SummaryReport summary,
         CancellationToken cancellationToken = default)
@@ -75,7 +77,14 @@ public sealed class DukascopyClient
                 summary.HoursProcessed++;
             }
 
-            var outcome = await DownloadToPoolAsync(instrument, hourUtc, TickFileSuffix, refreshCache, cancellationToken);
+            var outcome = await DownloadToPoolAsync(
+                instrument,
+                hourUtc,
+                TickFileSuffix,
+                refreshCache,
+                verifyChecksum,
+                recentRefreshDays,
+                cancellationToken);
             if (outcome.Success && outcome.LocalPath is not null)
             {
                 var ticks = await ReadTicksAsync(outcome.LocalPath, hourUtc, digits, cancellationToken);
@@ -129,7 +138,14 @@ public sealed class DukascopyClient
                     return;
                 }
 
-                var fallbackBars = await DownloadM1BarsForDayData(instrument, dayStart, digits, refreshCache, cancellationToken);
+                var fallbackBars = await DownloadM1BarsForDayData(
+                    instrument,
+                    dayStart,
+                    digits,
+                    refreshCache,
+                    verifyChecksum,
+                    recentRefreshDays,
+                    cancellationToken);
                 if (fallbackBars.Count > 0)
                 {
                     lock (aggregateLock)
@@ -155,6 +171,8 @@ public sealed class DukascopyClient
         DateTimeOffset endUtc,
         int digits,
         bool refreshCache,
+        bool verifyChecksum,
+        int recentRefreshDays,
         BarAggregator aggregator,
         SummaryReport summary,
         CancellationToken cancellationToken = default)
@@ -193,7 +211,14 @@ public sealed class DukascopyClient
                 summary.HoursProcessed += hourCount;
             }
 
-            var bars = await DownloadM1BarsForDayData(instrument, dayStart, digits, refreshCache, cancellationToken);
+            var bars = await DownloadM1BarsForDayData(
+                instrument,
+                dayStart,
+                digits,
+                refreshCache,
+                verifyChecksum,
+                recentRefreshDays,
+                cancellationToken);
             if (bars.Count == 0)
             {
                 lock (summaryLock)
@@ -219,9 +244,18 @@ public sealed class DukascopyClient
         DateTimeOffset dayUtc,
         int digits,
         bool refreshCache,
+        bool verifyChecksum,
+        int recentRefreshDays,
         CancellationToken cancellationToken)
     {
-        var outcome = await DownloadDailyToPoolAsync(instrument, dayUtc, M1DayFileName, refreshCache, cancellationToken);
+        var outcome = await DownloadDailyToPoolAsync(
+            instrument,
+            dayUtc,
+            M1DayFileName,
+            refreshCache,
+            verifyChecksum,
+            recentRefreshDays,
+            cancellationToken);
         if (!outcome.Success || outcome.LocalPath is null)
         {
             if (outcome.NotFound && _verbose)
@@ -240,6 +274,8 @@ public sealed class DukascopyClient
         DateTimeOffset hourUtc,
         string suffix,
         bool refreshCache,
+        bool verifyChecksum,
+        int recentRefreshDays,
         CancellationToken cancellationToken)
     {
         var fileName = $"{hourUtc:HH}h_{suffix}.bi5";
@@ -249,12 +285,12 @@ public sealed class DukascopyClient
             hourUtc.Month
         }.Where(m => m is >= 0 and <= 12).Distinct().ToList();
 
-        if (!refreshCache)
+        if (!ShouldRefresh(hourUtc, refreshCache, recentRefreshDays))
         {
             foreach (var month in monthCandidates)
             {
                 var localPath = _pool.GetLocalPath(instrument, hourUtc.Year, month, hourUtc.Day, fileName);
-                if (DataPool.DataPool.HasValidFile(localPath))
+                if (TryUseCache(localPath, verifyChecksum))
                 {
                     return DownloadOutcome.FromCache(localPath);
                 }
@@ -312,6 +348,8 @@ public sealed class DukascopyClient
         DateTimeOffset dayUtc,
         string fileName,
         bool refreshCache,
+        bool verifyChecksum,
+        int recentRefreshDays,
         CancellationToken cancellationToken)
     {
         var monthCandidates = new List<int>
@@ -320,12 +358,12 @@ public sealed class DukascopyClient
             dayUtc.Month
         }.Where(m => m is >= 0 and <= 12).Distinct().ToList();
 
-        if (!refreshCache)
+        if (!ShouldRefresh(dayUtc, refreshCache, recentRefreshDays))
         {
             foreach (var month in monthCandidates)
             {
                 var localPath = _pool.GetLocalPath(instrument, dayUtc.Year, month, dayUtc.Day, fileName);
-                if (DataPool.DataPool.HasValidFile(localPath))
+                if (TryUseCache(localPath, verifyChecksum))
                 {
                     return DownloadOutcome.FromCache(localPath);
                 }
@@ -408,11 +446,69 @@ public sealed class DukascopyClient
             }
 
             File.Move(tempPath, localPath, overwrite: true);
+            TryWriteMeta(localPath);
             return DownloadResult.CreateSuccess();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return DownloadResult.Failure(ex.Message);
+        }
+    }
+
+    private static bool ShouldRefresh(DateTimeOffset fileTimeUtc, bool refreshCache, int recentRefreshDays)
+    {
+        if (refreshCache)
+        {
+            return true;
+        }
+
+        if (recentRefreshDays <= 0)
+        {
+            return false;
+        }
+
+        var threshold = DateTimeOffset.UtcNow.AddDays(-recentRefreshDays);
+        return fileTimeUtc >= threshold;
+    }
+
+    private static bool TryUseCache(string localPath, bool verifyChecksum)
+    {
+        if (!verifyChecksum)
+        {
+            return DataPool.DataPool.HasValidFile(localPath);
+        }
+
+        if (DataPoolFileMeta.VerifyFile(localPath))
+        {
+            return true;
+        }
+
+        RemoveCorruptFile(localPath);
+        return false;
+    }
+
+    private static void RemoveCorruptFile(string localPath)
+    {
+        if (File.Exists(localPath))
+        {
+            File.Delete(localPath);
+        }
+
+        DataPoolFileMeta.DeleteMeta(localPath);
+    }
+
+    private void TryWriteMeta(string localPath)
+    {
+        try
+        {
+            DataPoolFileMeta.Write(localPath);
+        }
+        catch (Exception ex)
+        {
+            if (_verbose)
+            {
+                Console.WriteLine($"Failed to write metadata for {localPath}: {ex.Message}");
+            }
         }
     }
 

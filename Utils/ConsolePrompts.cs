@@ -24,8 +24,13 @@ public static class ConsolePrompts
         var dataPool = Prompt("Data pool path", options.DataPoolPath, defaults.DataPoolPath);
         var output = Prompt("Output path", options.OutputPath, defaults.OutputPath);
         var refreshCache = PromptBool("Refresh cache", options.RefreshCache);
+        var recentRefreshDays = PromptInt("Recent refresh days", options.RecentRefreshDays);
+        var verifyChecksum = PromptBool("Verify checksums", options.VerifyChecksum);
         var deduplicateTicks = PromptBool("Deduplicate ticks", options.DeduplicateTicks);
         var skipFallbackIfTicked = PromptBool("Skip fallback overlap", options.SkipFallbackIfTicked);
+        var repairGaps = PromptBool("Repair gaps", options.RepairGaps);
+        var validateM1 = PromptBool("Validate M1", options.ValidateM1);
+        var validationTolerancePoints = PromptInt("Validation tolerance (points)", options.ValidationTolerancePoints);
 
         return options with
         {
@@ -39,8 +44,13 @@ public static class ConsolePrompts
             DataPoolPath = dataPool,
             OutputPath = output,
             RefreshCache = refreshCache,
+            RecentRefreshDays = recentRefreshDays,
+            VerifyChecksum = verifyChecksum,
             DeduplicateTicks = deduplicateTicks,
-            SkipFallbackIfTicked = skipFallbackIfTicked
+            SkipFallbackIfTicked = skipFallbackIfTicked,
+            RepairGaps = repairGaps,
+            ValidateM1 = validateM1,
+            ValidationTolerancePoints = validationTolerancePoints
         };
     }
 
@@ -100,5 +110,17 @@ public static class ConsolePrompts
                || input.Trim().Equals("TRUE", StringComparison.OrdinalIgnoreCase)
                || input.Trim().Equals("1", StringComparison.OrdinalIgnoreCase)
                || input.Trim().Equals("ON", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int PromptInt(string label, int current)
+    {
+        Console.Write($"{label} [{current}]: ");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return current;
+        }
+
+        return int.TryParse(input.Trim(), out var parsed) ? parsed : current;
     }
 }

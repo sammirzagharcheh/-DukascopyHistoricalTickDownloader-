@@ -1,6 +1,7 @@
 using HistoricalData.Config;
 using HistoricalData.DataPool;
 using HistoricalData.Export;
+using HistoricalData.Models;
 using HistoricalData.Utils;
 
 namespace HistoricalData;
@@ -86,6 +87,8 @@ public static class Program
                 digits,
                 options.FallbackToM1,
                 options.RefreshCache,
+                options.VerifyChecksum,
+                options.RecentRefreshDays,
                 aggregator,
                 summary,
                 cts.Token);
@@ -98,12 +101,91 @@ public static class Program
                 endUtc,
                 digits,
                 options.RefreshCache,
+                options.VerifyChecksum,
+                options.RecentRefreshDays,
                 aggregator,
                 summary,
                 cts.Token);
         }
 
-        var bars = aggregator.GetBars();
+        var m1Bars = aggregator.GetBars();
+        if (options.RepairGaps && options.DownloadMode == DownloadMode.TickToM1)
+        {
+            var repairAggregator = new BarAggregator(
+                "m1",
+                digits,
+                options.UtcOffset,
+                options.FilterWeekends,
+                startUtc,
+                endUtc,
+                deduplicateTicks: false,
+                skipFallbackIfTicked: true);
+            var repairSummary = new SummaryReport();
+            await client.DownloadM1Bars(
+                options.Instrument,
+                startUtc,
+                endUtc,
+                digits,
+                options.RefreshCache,
+                options.VerifyChecksum,
+                options.RecentRefreshDays,
+                repairAggregator,
+                repairSummary,
+                cts.Token);
+
+            var repairBars = repairAggregator.GetBars();
+            var added = 0;
+            foreach (var bar in repairBars)
+            {
+                if (aggregator.TryAddFallbackBar(bar, onlyIfMissing: true))
+                {
+                    added++;
+                }
+            }
+
+            summary.GapRepairBarsAdded = added;
+            summary.GapRepairBarsSkipped = repairBars.Count - added;
+            m1Bars = aggregator.GetBars();
+        }
+
+        if (options.ValidateM1 && options.DownloadMode == DownloadMode.TickToM1)
+        {
+            var validateAggregator = new BarAggregator(
+                "m1",
+                digits,
+                options.UtcOffset,
+                options.FilterWeekends,
+                startUtc,
+                endUtc,
+                deduplicateTicks: false,
+                skipFallbackIfTicked: false);
+            var validateSummary = new SummaryReport();
+            await client.DownloadM1Bars(
+                options.Instrument,
+                startUtc,
+                endUtc,
+                digits,
+                options.RefreshCache,
+                options.VerifyChecksum,
+                options.RecentRefreshDays,
+                validateAggregator,
+                validateSummary,
+                cts.Token);
+
+            var validationBars = validateAggregator.GetBars();
+            var barMap = m1Bars.ToDictionary(b => b.Time);
+            var tolerance = options.ValidationTolerancePoints / Math.Pow(10, digits);
+            foreach (var bar in validationBars)
+            {
+                summary.ValidationChecked++;
+                if (!barMap.TryGetValue(bar.Time, out var baseBar) || !IsWithinTolerance(baseBar, bar, tolerance))
+                {
+                    summary.ValidationMismatches++;
+                }
+            }
+        }
+
+        var bars = m1Bars;
         if (timeframeMinutes > 1)
         {
             bars = BarResampler.Resample(bars, timeframeMinutes);
@@ -148,10 +230,26 @@ public static class Program
         Console.WriteLine("  --instruments ./config/instruments.json");
         Console.WriteLine("  --http ./config/http.json");
         Console.WriteLine("  --no-refresh");
+        Console.WriteLine("  --recent-refresh-days 30");
+        Console.WriteLine("  --verify-checksum");
+        Console.WriteLine("  --no-verify-checksum");
         Console.WriteLine("  --no-dedupe");
         Console.WriteLine("  --skip-fallback-overlap");
         Console.WriteLine("  --allow-fallback-overlap");
+        Console.WriteLine("  --repair-gaps");
+        Console.WriteLine("  --no-repair-gaps");
+        Console.WriteLine("  --validate-m1");
+        Console.WriteLine("  --no-validate-m1");
+        Console.WriteLine("  --validation-tolerance-points 1");
         Console.WriteLine("  --no-prompt");
         Console.WriteLine("  --quiet");
+    }
+
+    private static bool IsWithinTolerance(Bar left, Bar right, double tolerance)
+    {
+        return Math.Abs(left.Open - right.Open) <= tolerance
+               && Math.Abs(left.High - right.High) <= tolerance
+               && Math.Abs(left.Low - right.Low) <= tolerance
+               && Math.Abs(left.Close - right.Close) <= tolerance;
     }
 }
