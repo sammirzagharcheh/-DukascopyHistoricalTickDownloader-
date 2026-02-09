@@ -38,12 +38,15 @@ public sealed class DukascopyClient
         DateTimeOffset endUtc,
         int digits,
         bool fallbackToM1,
+        bool refreshCache,
         BarAggregator aggregator,
         SummaryReport summary,
         CancellationToken cancellationToken = default)
     {
         var aggregateLock = new object();
         var summaryLock = new object();
+        var fallbackLock = new object();
+        var fallbackDays = new HashSet<DateTimeOffset>();
         var semaphore = new SemaphoreSlim(_maxConcurrency);
         var tasks = new List<Task>();
 
@@ -72,7 +75,7 @@ public sealed class DukascopyClient
                 summary.HoursProcessed++;
             }
 
-            var outcome = await DownloadToPoolAsync(instrument, hourUtc, TickFileSuffix, cancellationToken);
+            var outcome = await DownloadToPoolAsync(instrument, hourUtc, TickFileSuffix, refreshCache, cancellationToken);
             if (outcome.Success && outcome.LocalPath is not null)
             {
                 var ticks = await ReadTicksAsync(outcome.LocalPath, hourUtc, digits, cancellationToken);
@@ -110,7 +113,23 @@ public sealed class DukascopyClient
 
             if (fallbackToM1)
             {
-                var fallbackBars = await DownloadM1BarsForDayData(instrument, hourUtc.Date, digits, cancellationToken);
+                var dayStart = new DateTimeOffset(hourUtc.Date, TimeSpan.Zero);
+                var shouldDownload = false;
+                lock (fallbackLock)
+                {
+                    if (!fallbackDays.Contains(dayStart))
+                    {
+                        fallbackDays.Add(dayStart);
+                        shouldDownload = true;
+                    }
+                }
+
+                if (!shouldDownload)
+                {
+                    return;
+                }
+
+                var fallbackBars = await DownloadM1BarsForDayData(instrument, dayStart, digits, refreshCache, cancellationToken);
                 if (fallbackBars.Count > 0)
                 {
                     lock (aggregateLock)
@@ -135,6 +154,7 @@ public sealed class DukascopyClient
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         int digits,
+        bool refreshCache,
         BarAggregator aggregator,
         SummaryReport summary,
         CancellationToken cancellationToken = default)
@@ -173,7 +193,7 @@ public sealed class DukascopyClient
                 summary.HoursProcessed += hourCount;
             }
 
-            var bars = await DownloadM1BarsForDayData(instrument, dayStart, digits, cancellationToken);
+            var bars = await DownloadM1BarsForDayData(instrument, dayStart, digits, refreshCache, cancellationToken);
             if (bars.Count == 0)
             {
                 lock (summaryLock)
@@ -198,9 +218,10 @@ public sealed class DukascopyClient
         string instrument,
         DateTimeOffset dayUtc,
         int digits,
+        bool refreshCache,
         CancellationToken cancellationToken)
     {
-        var outcome = await DownloadDailyToPoolAsync(instrument, dayUtc, M1DayFileName, cancellationToken);
+        var outcome = await DownloadDailyToPoolAsync(instrument, dayUtc, M1DayFileName, refreshCache, cancellationToken);
         if (!outcome.Success || outcome.LocalPath is null)
         {
             if (outcome.NotFound && _verbose)
@@ -218,6 +239,7 @@ public sealed class DukascopyClient
         string instrument,
         DateTimeOffset hourUtc,
         string suffix,
+        bool refreshCache,
         CancellationToken cancellationToken)
     {
         var fileName = $"{hourUtc:HH}h_{suffix}.bi5";
@@ -227,12 +249,15 @@ public sealed class DukascopyClient
             hourUtc.Month
         }.Where(m => m is >= 0 and <= 12).Distinct().ToList();
 
-        foreach (var month in monthCandidates)
+        if (!refreshCache)
         {
-            var localPath = _pool.GetLocalPath(instrument, hourUtc.Year, month, hourUtc.Day, fileName);
-            if (DataPool.DataPool.HasValidFile(localPath))
+            foreach (var month in monthCandidates)
             {
-                return DownloadOutcome.FromCache(localPath);
+                var localPath = _pool.GetLocalPath(instrument, hourUtc.Year, month, hourUtc.Day, fileName);
+                if (DataPool.DataPool.HasValidFile(localPath))
+                {
+                    return DownloadOutcome.FromCache(localPath);
+                }
             }
         }
 
@@ -286,6 +311,7 @@ public sealed class DukascopyClient
         string instrument,
         DateTimeOffset dayUtc,
         string fileName,
+        bool refreshCache,
         CancellationToken cancellationToken)
     {
         var monthCandidates = new List<int>
@@ -294,12 +320,15 @@ public sealed class DukascopyClient
             dayUtc.Month
         }.Where(m => m is >= 0 and <= 12).Distinct().ToList();
 
-        foreach (var month in monthCandidates)
+        if (!refreshCache)
         {
-            var localPath = _pool.GetLocalPath(instrument, dayUtc.Year, month, dayUtc.Day, fileName);
-            if (DataPool.DataPool.HasValidFile(localPath))
+            foreach (var month in monthCandidates)
             {
-                return DownloadOutcome.FromCache(localPath);
+                var localPath = _pool.GetLocalPath(instrument, dayUtc.Year, month, dayUtc.Day, fileName);
+                if (DataPool.DataPool.HasValidFile(localPath))
+                {
+                    return DownloadOutcome.FromCache(localPath);
+                }
             }
         }
 

@@ -42,6 +42,39 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void BarAggregator_DeduplicatesIdenticalTicks_WhenEnabled()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var end = start.AddMinutes(1);
+        var aggregator = new BarAggregator("m1", 5, TimeSpan.Zero, filterWeekends: false, start, end, deduplicateTicks: true);
+
+        var tick = new Tick(start.AddSeconds(10), 1.23456, 1.23466, 1.0f, 1.0f);
+        aggregator.AddTick(tick);
+        aggregator.AddTick(tick);
+
+        var bars = aggregator.GetBars();
+        Assert.Single(bars);
+        Assert.Equal(1, bars[0].Volume);
+        Assert.Equal(1, aggregator.DuplicateTicksDropped);
+    }
+
+    [Fact]
+    public void BarAggregator_SkipsFallbackBar_WhenMinuteHasTicks()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var end = start.AddMinutes(1);
+        var aggregator = new BarAggregator("m1", 5, TimeSpan.Zero, filterWeekends: false, start, end, deduplicateTicks: true, skipFallbackIfTicked: true);
+
+        aggregator.AddTick(new Tick(start.AddSeconds(5), 1.1, 1.2, 1.0f, 1.0f));
+        aggregator.AddBar(new Bar(start, 1.0, 1.3, 0.9, 1.2, 100, 1, 1));
+
+        var bars = aggregator.GetBars();
+        Assert.Single(bars);
+        Assert.Equal(1, bars[0].Volume);
+        Assert.Equal(1, aggregator.FallbackBarsSkipped);
+    }
+
+    [Fact]
     public void BarResampler_AggregatesToFiveMinutes()
     {
         var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);

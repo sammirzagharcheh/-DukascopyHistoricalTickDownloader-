@@ -56,6 +56,9 @@ After a successful run, output files are written to the `output` folder:
 - `--offset` UTC offset (example: `+02:00`)
 - `--pool` Data pool cache folder
 - `--output` Output folder
+- `--no-refresh` Use cached pool files (default refresh is ON)
+- `--no-dedupe` Disable strict tick de-duplication (default is ON)
+- `--allow-fallback-overlap` Allow fallback M1 bars to merge with tick minutes
 
 ### Tips
 
@@ -90,6 +93,10 @@ Run without arguments to be prompted for:
 --output ./output
 --instruments ./config/instruments.json
 --http ./config/http.json
+--no-refresh
+--no-dedupe
+--skip-fallback-overlap
+--allow-fallback-overlap
 --no-prompt
 --quiet
 --help
@@ -119,6 +126,9 @@ dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --inst
 - Weekend bars are filtered.
 - UTC offset is applied to output alignment.
 - Ctrl+C cancels the run gracefully.
+- Cache refresh is ON by default; use `--no-refresh` to reuse existing pool files.
+- Tick de-duplication is ON by default; use `--no-dedupe` to disable.
+- Tick minutes override fallback M1 by default; use `--allow-fallback-overlap` to merge.
 
 ## Direct vs Ticks
 
