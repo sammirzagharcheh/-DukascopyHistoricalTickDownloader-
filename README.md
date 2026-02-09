@@ -56,6 +56,14 @@ After a successful run, output files are written to the `output` folder:
 - `--offset` UTC offset (example: `+02:00`)
 - `--pool` Data pool cache folder
 - `--output` Output folder
+- `--recent-refresh-days` Refresh recent data window in days (default 30)
+- `--verify-checksum` Verify cached file checksums (default ON)
+- `--no-verify-checksum` Disable checksum validation
+- `--repair-gaps` Fill missing minutes using direct M1 bars (default ON)
+- `--no-repair-gaps` Disable gap repair
+- `--validate-m1` Validate tick-derived M1 vs direct M1 (default ON)
+- `--no-validate-m1` Disable M1 validation
+- `--validation-tolerance-points` Allowed OHLC delta in points (default 1)
 - `--no-refresh` Use cached pool files (default refresh is ON)
 - `--no-dedupe` Disable strict tick de-duplication (default is ON)
 - `--allow-fallback-overlap` Allow fallback M1 bars to merge with tick minutes
@@ -94,9 +102,17 @@ Run without arguments to be prompted for:
 --instruments ./config/instruments.json
 --http ./config/http.json
 --no-refresh
+--recent-refresh-days 30
+--verify-checksum
+--no-verify-checksum
 --no-dedupe
 --skip-fallback-overlap
 --allow-fallback-overlap
+--repair-gaps
+--no-repair-gaps
+--validate-m1
+--no-validate-m1
+--validation-tolerance-points 1
 --no-prompt
 --quiet
 --help
@@ -127,8 +143,12 @@ dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --inst
 - UTC offset is applied to output alignment.
 - Ctrl+C cancels the run gracefully.
 - Cache refresh is ON by default; use `--no-refresh` to reuse existing pool files.
+- Recent refresh window defaults to 30 days; use `--recent-refresh-days` to change it.
+- Checksum verification is ON by default; use `--no-verify-checksum` to skip.
 - Tick de-duplication is ON by default; use `--no-dedupe` to disable.
 - Tick minutes override fallback M1 by default; use `--allow-fallback-overlap` to merge.
+- Gap repair (missing minutes) is ON by default; use `--no-repair-gaps` to disable.
+- M1 validation is ON by default; use `--no-validate-m1` to disable.
 
 ## Direct vs Ticks
 

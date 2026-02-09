@@ -30,8 +30,13 @@ public sealed record AppOptions(
     bool FilterWeekends,
     bool FallbackToM1,
     bool RefreshCache,
+    int RecentRefreshDays,
+    bool VerifyChecksum,
     bool DeduplicateTicks,
     bool SkipFallbackIfTicked,
+    bool RepairGaps,
+    bool ValidateM1,
+    int ValidationTolerancePoints,
     bool NonInteractive
 )
 {
@@ -51,8 +56,13 @@ public sealed record AppOptions(
         FilterWeekends: true,
         FallbackToM1: true,
         RefreshCache: true,
+        RecentRefreshDays: 30,
+        VerifyChecksum: true,
         DeduplicateTicks: true,
         SkipFallbackIfTicked: true,
+        RepairGaps: true,
+        ValidateM1: true,
+        ValidationTolerancePoints: 1,
         NonInteractive: false
     );
 
@@ -87,8 +97,13 @@ public sealed record AppOptions(
         var nonInteractive = args.ContainsKey("no-prompt");
 
         var refreshCache = GetBool(args, "refresh", !args.ContainsKey("no-refresh"));
+        var recentRefreshDays = GetInt(args, "recent-refresh-days", d.RecentRefreshDays);
+        var verifyChecksum = GetBool(args, "verify-checksum", !args.ContainsKey("no-verify-checksum"));
         var deduplicateTicks = GetBool(args, "dedupe", !args.ContainsKey("no-dedupe"));
         var skipFallbackIfTicked = GetBool(args, "skip-fallback-overlap", !args.ContainsKey("allow-fallback-overlap"));
+        var repairGaps = GetBool(args, "repair-gaps", !args.ContainsKey("no-repair-gaps"));
+        var validateM1 = GetBool(args, "validate-m1", !args.ContainsKey("no-validate-m1"));
+        var validationTolerancePoints = GetInt(args, "validation-tolerance-points", d.ValidationTolerancePoints);
 
         return d with
         {
@@ -105,8 +120,13 @@ public sealed record AppOptions(
             HttpConfigPath = httpConfigPath,
             Verbose = verbose,
             RefreshCache = refreshCache,
+            RecentRefreshDays = recentRefreshDays,
+            VerifyChecksum = verifyChecksum,
             DeduplicateTicks = deduplicateTicks,
             SkipFallbackIfTicked = skipFallbackIfTicked,
+            RepairGaps = repairGaps,
+            ValidateM1 = validateM1,
+            ValidationTolerancePoints = validationTolerancePoints,
             NonInteractive = nonInteractive
         };
     }
@@ -123,5 +143,15 @@ public sealed record AppOptions(
                || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
                || value.Equals("y", StringComparison.OrdinalIgnoreCase)
                || value.Equals("on", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetInt(Dictionary<string, string> args, string key, int fallback)
+    {
+        if (!args.TryGetValue(key, out var value))
+        {
+            return fallback;
+        }
+
+        return int.TryParse(value, out var parsed) ? parsed : fallback;
     }
 }

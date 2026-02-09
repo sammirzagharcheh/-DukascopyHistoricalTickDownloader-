@@ -1,4 +1,5 @@
 using System.Text;
+using HistoricalData.DataPool;
 using HistoricalData.Export;
 using HistoricalData.Models;
 using HistoricalData.Utils;
@@ -72,6 +73,21 @@ public sealed class CoreTests
         Assert.Single(bars);
         Assert.Equal(1, bars[0].Volume);
         Assert.Equal(1, aggregator.FallbackBarsSkipped);
+    }
+
+    [Fact]
+    public void BarAggregator_TryAddFallbackBar_OnlyIfMissing()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var end = start.AddMinutes(1);
+        var aggregator = new BarAggregator("m1", 5, TimeSpan.Zero, filterWeekends: false, start, end, deduplicateTicks: false, skipFallbackIfTicked: true);
+
+        var bar = new Bar(start, 1.0, 1.1, 0.9, 1.05, 10, 1, 1);
+        Assert.True(aggregator.TryAddFallbackBar(bar, onlyIfMissing: true));
+        Assert.False(aggregator.TryAddFallbackBar(bar, onlyIfMissing: true));
+
+        var bars = aggregator.GetBars();
+        Assert.Single(bars);
     }
 
     [Fact]
@@ -211,6 +227,33 @@ public sealed class CoreTests
         Assert.Equal(12, bars[0].Volume);
         Assert.Equal(0, bars[0].Spread);
         Assert.Equal(0, bars[0].RealVolume);
+    }
+
+    [Fact]
+    public void DataPoolFileMeta_VerifiesChecksum()
+    {
+        var path = Path.GetTempFileName();
+        var metaPath = DataPoolFileMeta.GetMetaPath(path);
+        try
+        {
+            File.WriteAllBytes(path, new byte[] { 1, 2, 3, 4 });
+            DataPoolFileMeta.Write(path);
+            Assert.True(DataPoolFileMeta.VerifyFile(path));
+
+            File.WriteAllBytes(path, new byte[] { 1, 2, 3, 4, 5 });
+            Assert.False(DataPoolFileMeta.VerifyFile(path));
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            if (File.Exists(metaPath))
+            {
+                File.Delete(metaPath);
+            }
+        }
     }
 
     private static void WriteInt32BE(Span<byte> buffer, int offset, int value)

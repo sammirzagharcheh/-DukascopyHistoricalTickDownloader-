@@ -91,23 +91,34 @@ public sealed class BarAggregator
 
     public void AddBar(Bar bar)
     {
+        TryAddFallbackBar(bar, onlyIfMissing: false);
+    }
+
+    public bool TryAddFallbackBar(Bar bar, bool onlyIfMissing)
+    {
         var serverTime = bar.Time.ToOffset(_utcOffset);
         if (!IsInRange(serverTime))
         {
-            return;
+            return false;
         }
 
         if (_filterWeekends && IsWeekend(serverTime))
         {
-            return;
+            return false;
         }
 
         var minuteKey = GetMinuteKey(serverTime);
+        if (onlyIfMissing && _bars.ContainsKey(minuteKey))
+        {
+            return false;
+        }
+
         if (_skipFallbackIfTicked && _minutesWithTicks.Contains(minuteKey))
         {
             FallbackBarsSkipped++;
-            return;
+            return false;
         }
+
         if (!_bars.TryGetValue(minuteKey, out var builder))
         {
             var minuteTime = DateTimeOffset.FromUnixTimeSeconds(minuteKey * 60).ToOffset(_utcOffset);
@@ -120,6 +131,8 @@ public sealed class BarAggregator
         {
             _minutesWithFallbackBars.Add(minuteKey);
         }
+
+        return true;
     }
 
     public IReadOnlyList<Bar> GetBars()
