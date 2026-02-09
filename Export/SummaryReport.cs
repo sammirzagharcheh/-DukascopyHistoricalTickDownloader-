@@ -5,6 +5,8 @@ public sealed class SummaryReport
     public long Ticks { get; set; }
     public long Bars { get; set; }
     public long M1FallbackBars { get; set; }
+    public long FallbackBarsSkipped { get; set; }
+    public long DuplicateTicksDropped { get; set; }
     public long MissingHours { get; set; }
     public long HoursProcessed { get; set; }
 
@@ -16,5 +18,7 @@ public sealed class SummaryReport
         Console.WriteLine($"  Ticks:           {Ticks}");
         Console.WriteLine($"  Bars:            {Bars}");
         Console.WriteLine($"  M1 fallback bars:{M1FallbackBars}");
+        Console.WriteLine($"  Fallback skipped:{FallbackBarsSkipped}");
+        Console.WriteLine($"  Tick deduped:    {DuplicateTicksDropped}");
     }
 }

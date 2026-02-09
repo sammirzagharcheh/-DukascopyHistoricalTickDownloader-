@@ -67,7 +67,15 @@ public static class Program
             return 1;
         }
 
-        var aggregator = new BarAggregator("m1", digits, options.UtcOffset, options.FilterWeekends, startUtc, endUtc);
+        var aggregator = new BarAggregator(
+            "m1",
+            digits,
+            options.UtcOffset,
+            options.FilterWeekends,
+            startUtc,
+            endUtc,
+            options.DeduplicateTicks,
+            options.SkipFallbackIfTicked);
 
         if (options.DownloadMode == DownloadMode.TickToM1)
         {
@@ -77,6 +85,7 @@ public static class Program
                 endUtc,
                 digits,
                 options.FallbackToM1,
+                options.RefreshCache,
                 aggregator,
                 summary,
                 cts.Token);
@@ -88,6 +97,7 @@ public static class Program
                 startUtc,
                 endUtc,
                 digits,
+                options.RefreshCache,
                 aggregator,
                 summary,
                 cts.Token);
@@ -99,6 +109,8 @@ public static class Program
             bars = BarResampler.Resample(bars, timeframeMinutes);
         }
         summary.Bars = bars.Count;
+        summary.DuplicateTicksDropped = aggregator.DuplicateTicksDropped;
+        summary.FallbackBarsSkipped = aggregator.FallbackBarsSkipped;
 
         var csvPath = Path.Combine(outputPath, $"{options.Instrument}_{options.Timeframe}.csv");
         CsvWriter.Write(csvPath, bars);
@@ -135,6 +147,10 @@ public static class Program
         Console.WriteLine("  --output ./output");
         Console.WriteLine("  --instruments ./config/instruments.json");
         Console.WriteLine("  --http ./config/http.json");
+        Console.WriteLine("  --no-refresh");
+        Console.WriteLine("  --no-dedupe");
+        Console.WriteLine("  --skip-fallback-overlap");
+        Console.WriteLine("  --allow-fallback-overlap");
         Console.WriteLine("  --no-prompt");
         Console.WriteLine("  --quiet");
     }

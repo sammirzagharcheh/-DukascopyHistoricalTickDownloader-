@@ -29,6 +29,9 @@ public sealed record AppOptions(
     bool Verbose,
     bool FilterWeekends,
     bool FallbackToM1,
+    bool RefreshCache,
+    bool DeduplicateTicks,
+    bool SkipFallbackIfTicked,
     bool NonInteractive
 )
 {
@@ -47,6 +50,9 @@ public sealed record AppOptions(
         Verbose: true,
         FilterWeekends: true,
         FallbackToM1: true,
+        RefreshCache: true,
+        DeduplicateTicks: true,
+        SkipFallbackIfTicked: true,
         NonInteractive: false
     );
 
@@ -80,6 +86,10 @@ public sealed record AppOptions(
         var verbose = !args.ContainsKey("quiet");
         var nonInteractive = args.ContainsKey("no-prompt");
 
+        var refreshCache = GetBool(args, "refresh", !args.ContainsKey("no-refresh"));
+        var deduplicateTicks = GetBool(args, "dedupe", !args.ContainsKey("no-dedupe"));
+        var skipFallbackIfTicked = GetBool(args, "skip-fallback-overlap", !args.ContainsKey("allow-fallback-overlap"));
+
         return d with
         {
             Instrument = instrument,
@@ -94,7 +104,24 @@ public sealed record AppOptions(
             InstrumentsPath = instrumentsPath,
             HttpConfigPath = httpConfigPath,
             Verbose = verbose,
+            RefreshCache = refreshCache,
+            DeduplicateTicks = deduplicateTicks,
+            SkipFallbackIfTicked = skipFallbackIfTicked,
             NonInteractive = nonInteractive
         };
+    }
+
+    private static bool GetBool(Dictionary<string, string> args, string key, bool fallback)
+    {
+        if (!args.TryGetValue(key, out var value))
+        {
+            return fallback;
+        }
+
+        return value.Equals("true", StringComparison.OrdinalIgnoreCase)
+               || value.Equals("1", StringComparison.OrdinalIgnoreCase)
+               || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+               || value.Equals("y", StringComparison.OrdinalIgnoreCase)
+               || value.Equals("on", StringComparison.OrdinalIgnoreCase);
     }
 }

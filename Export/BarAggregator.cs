@@ -5,25 +5,42 @@ namespace HistoricalData.Export;
 public sealed class BarAggregator
 {
     private readonly Dictionary<long, BarBuilder> _bars = new();
+    private readonly Dictionary<long, HashSet<TickKey>> _tickKeys = new();
+    private readonly HashSet<long> _minutesWithTicks = new();
+    private readonly HashSet<long> _minutesWithFallbackBars = new();
     private readonly int _digits;
     private readonly double _scale;
     private readonly TimeSpan _utcOffset;
     private readonly bool _filterWeekends;
+    private readonly bool _deduplicateTicks;
+    private readonly bool _skipFallbackIfTicked;
     private readonly DateTimeOffset _startServer;
     private readonly DateTimeOffset _endServer;
 
-    public BarAggregator(string timeframe, int digits, TimeSpan utcOffset, bool filterWeekends, DateTimeOffset startUtc, DateTimeOffset endUtc)
+    public BarAggregator(
+        string timeframe,
+        int digits,
+        TimeSpan utcOffset,
+        bool filterWeekends,
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        bool deduplicateTicks = true,
+        bool skipFallbackIfTicked = true)
     {
         Timeframe = timeframe;
         _digits = digits;
         _scale = Math.Pow(10, digits);
         _utcOffset = utcOffset;
         _filterWeekends = filterWeekends;
+        _deduplicateTicks = deduplicateTicks;
+        _skipFallbackIfTicked = skipFallbackIfTicked;
         _startServer = startUtc.ToOffset(utcOffset);
         _endServer = endUtc.ToOffset(utcOffset);
     }
 
     public string Timeframe { get; }
+    public long DuplicateTicksDropped { get; private set; }
+    public long FallbackBarsSkipped { get; private set; }
 
     public void AddTick(Tick tick)
     {
@@ -39,6 +56,29 @@ public sealed class BarAggregator
         }
 
         var minuteKey = GetMinuteKey(serverTime);
+        if (_deduplicateTicks)
+        {
+            var key = new TickKey(tick, _scale);
+            if (!_tickKeys.TryGetValue(minuteKey, out var keys))
+            {
+                keys = new HashSet<TickKey>();
+                _tickKeys[minuteKey] = keys;
+            }
+
+            if (!keys.Add(key))
+            {
+                DuplicateTicksDropped++;
+                return;
+            }
+        }
+
+        _minutesWithTicks.Add(minuteKey);
+        if (_skipFallbackIfTicked && _minutesWithFallbackBars.Contains(minuteKey))
+        {
+            _bars.Remove(minuteKey);
+            _minutesWithFallbackBars.Remove(minuteKey);
+        }
+
         if (!_bars.TryGetValue(minuteKey, out var builder))
         {
             var minuteTime = DateTimeOffset.FromUnixTimeSeconds(minuteKey * 60).ToOffset(_utcOffset);
@@ -63,6 +103,11 @@ public sealed class BarAggregator
         }
 
         var minuteKey = GetMinuteKey(serverTime);
+        if (_skipFallbackIfTicked && _minutesWithTicks.Contains(minuteKey))
+        {
+            FallbackBarsSkipped++;
+            return;
+        }
         if (!_bars.TryGetValue(minuteKey, out var builder))
         {
             var minuteTime = DateTimeOffset.FromUnixTimeSeconds(minuteKey * 60).ToOffset(_utcOffset);
@@ -71,6 +116,10 @@ public sealed class BarAggregator
         }
 
         builder.MergeBar(bar);
+        if (!_minutesWithTicks.Contains(minuteKey))
+        {
+            _minutesWithFallbackBars.Add(minuteKey);
+        }
     }
 
     public IReadOnlyList<Bar> GetBars()
@@ -95,6 +144,43 @@ public sealed class BarAggregator
     private static long GetMinuteKey(DateTimeOffset time)
     {
         return time.ToUnixTimeSeconds() / 60;
+    }
+
+    private readonly struct TickKey : IEquatable<TickKey>
+    {
+        private readonly long _timestampMs;
+        private readonly long _bid;
+        private readonly long _ask;
+        private readonly int _bidVolBits;
+        private readonly int _askVolBits;
+
+        public TickKey(Tick tick, double scale)
+        {
+            _timestampMs = tick.Time.ToUnixTimeMilliseconds();
+            _bid = (long)Math.Round(tick.Bid * scale);
+            _ask = (long)Math.Round(tick.Ask * scale);
+            _bidVolBits = BitConverter.SingleToInt32Bits(tick.BidVolume);
+            _askVolBits = BitConverter.SingleToInt32Bits(tick.AskVolume);
+        }
+
+        public bool Equals(TickKey other)
+        {
+            return _timestampMs == other._timestampMs
+                   && _bid == other._bid
+                   && _ask == other._ask
+                   && _bidVolBits == other._bidVolBits
+                   && _askVolBits == other._askVolBits;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is TickKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(_timestampMs, _bid, _ask, _bidVolBits, _askVolBits);
+        }
     }
 
     private sealed class BarBuilder

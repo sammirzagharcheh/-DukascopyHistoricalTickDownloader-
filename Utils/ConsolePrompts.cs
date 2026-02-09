@@ -23,6 +23,9 @@ public static class ConsolePrompts
 
         var dataPool = Prompt("Data pool path", options.DataPoolPath, defaults.DataPoolPath);
         var output = Prompt("Output path", options.OutputPath, defaults.OutputPath);
+        var refreshCache = PromptBool("Refresh cache", options.RefreshCache);
+        var deduplicateTicks = PromptBool("Deduplicate ticks", options.DeduplicateTicks);
+        var skipFallbackIfTicked = PromptBool("Skip fallback overlap", options.SkipFallbackIfTicked);
 
         return options with
         {
@@ -34,7 +37,10 @@ public static class ConsolePrompts
             OutputFormat = outputFormat,
             UtcOffset = offset,
             DataPoolPath = dataPool,
-            OutputPath = output
+            OutputPath = output,
+            RefreshCache = refreshCache,
+            DeduplicateTicks = deduplicateTicks,
+            SkipFallbackIfTicked = skipFallbackIfTicked
         };
     }
 
@@ -56,7 +62,7 @@ public static class ConsolePrompts
         var input = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(input))
         {
-            return current == default ? fallback : current;
+            return current;
         }
 
         return DateTimeParser.TryParse(input, current == default ? fallback : current);
@@ -77,5 +83,22 @@ public static class ConsolePrompts
         }
 
         return input.Trim().ToUpperInvariant();
+    }
+
+    private static bool PromptBool(string label, bool current)
+    {
+        var currentText = current ? "Y" : "N";
+        Console.Write($"{label} (Y/N) [{currentText}]: ");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return current;
+        }
+
+        return input.Trim().Equals("Y", StringComparison.OrdinalIgnoreCase)
+               || input.Trim().Equals("YES", StringComparison.OrdinalIgnoreCase)
+               || input.Trim().Equals("TRUE", StringComparison.OrdinalIgnoreCase)
+               || input.Trim().Equals("1", StringComparison.OrdinalIgnoreCase)
+               || input.Trim().Equals("ON", StringComparison.OrdinalIgnoreCase);
     }
 }
