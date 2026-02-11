@@ -24,9 +24,9 @@ public static class Program
             options = ConsolePrompts.FillMissing(options);
         }
 
-        if (!TimeframeUtils.TryGetMinutes(options.Timeframe, out _))
+        if (!TimeframeUtils.TryParse(options.Timeframe, out var timeframeInfo))
         {
-            Console.WriteLine("Unsupported timeframe. Use m1, m5, m15, m30, or h1.");
+            Console.WriteLine($"Unsupported timeframe. {TimeframeUtils.SupportedTimeframeHint}");
             return 1;
         }
 
@@ -62,11 +62,7 @@ public static class Program
             return 1;
         }
 
-        if (!TimeframeUtils.TryGetMinutes(options.Timeframe, out var timeframeMinutes))
-        {
-            Console.WriteLine("Unsupported timeframe. Use m1, m5, m15, m30, or h1.");
-            return 1;
-        }
+        var timeframeMinutes = timeframeInfo.Minutes;
 
         SessionConfig.SessionCalendar? sessionCalendar = null;
         if (options.UseSessionCalendar)
@@ -198,7 +194,7 @@ public static class Program
         var bars = m1Bars;
         if (timeframeMinutes > 1)
         {
-            bars = BarResampler.Resample(bars, timeframeMinutes);
+            bars = BarResampler.Resample(bars, timeframeInfo);
         }
         summary.Bars = bars.Count;
         summary.DuplicateTicksDropped = aggregator.DuplicateTicksDropped;
@@ -231,14 +227,14 @@ public static class Program
         Console.WriteLine("  --instrument EURUSD");
         Console.WriteLine("  --start 2025-01-01T00:00:00Z");
         Console.WriteLine("  --end 2025-01-03T00:00:00Z");
-        Console.WriteLine("  --timeframe m1");
+        Console.WriteLine("  --timeframe m1|m5|m15|m30|h1|h4|h6|d1|w1|mn1|m<minutes>");
         Console.WriteLine("  --mode direct|ticks");
         Console.WriteLine("  --format csv|csv+hst");
         Console.WriteLine("  --offset +02:00");
         Console.WriteLine("  --pool /DataPool");
         Console.WriteLine("  --output ./output");
-        Console.WriteLine("  --instruments ./Config/instruments.json");
-        Console.WriteLine("  --http ./Config/http.json");
+        Console.WriteLine("  --instruments ./src/ConsoleApp/Config/instruments.json");
+        Console.WriteLine("  --http ./src/ConsoleApp/Config/http.json");
         Console.WriteLine("  --no-refresh");
         Console.WriteLine("  --recent-refresh-days 30");
         Console.WriteLine("  --verify-checksum");
@@ -253,7 +249,7 @@ public static class Program
         Console.WriteLine("  --validation-tolerance-points 1");
         Console.WriteLine("  --use-session-calendar");
         Console.WriteLine("  --no-session-calendar");
-        Console.WriteLine("  --session-config ./Config/sessions.json");
+        Console.WriteLine("  --session-config ./src/ConsoleApp/Config/sessions.json");
         Console.WriteLine("  --no-prompt");
         Console.WriteLine("  --quiet");
     }

@@ -52,8 +52,8 @@ public sealed record AppOptions(
         UtcOffset: TimeSpan.Zero,
         DataPoolPath: "/DataPool",
         OutputPath: "./output",
-        InstrumentsPath: "./Config/instruments.json",
-        HttpConfigPath: "./Config/http.json",
+        InstrumentsPath: "./src/ConsoleApp/Config/instruments.json",
+        HttpConfigPath: "./src/ConsoleApp/Config/http.json",
         Verbose: true,
         FilterWeekends: true,
         FallbackToM1: true,
@@ -66,7 +66,7 @@ public sealed record AppOptions(
         ValidateM1: true,
         ValidationTolerancePoints: 1,
         UseSessionCalendar: false,
-        SessionConfigPath: "./Config/sessions.json",
+        SessionConfigPath: "./src/ConsoleApp/Config/sessions.json",
         NonInteractive: false
     );
 

@@ -1,10 +1,16 @@
 # HistoricalData
 
+[![CI](https://github.com/sammirzagharcheh/-DukascopyHistoricalTickDownloader-/actions/workflows/ci.yml/badge.svg)](https://github.com/sammirzagharcheh/-DukascopyHistoricalTickDownloader-/actions/workflows/ci.yml)
+
 C# console app that downloads Dukascopy historical tick data (.bi5 LZMA), converts it to MT5 bars, and exports CSV + HST (MT5 build 5430 compatible layout). Uses a local data pool to cache raw Dukascopy files for incremental updates.
 
 ## Requirements
 
 - .NET 10 SDK
+
+## CI
+
+CI runs `dotnet test` on Windows, macOS, and Linux for pull requests and pushes to `main`.
 
 ## Usage
 
@@ -29,13 +35,13 @@ C# console app that downloads Dukascopy historical tick data (.bi5 LZMA), conver
 3. Run:
 
 ```text
-dotnet run --project HistoricalData.csproj
+dotnet run --project src/ConsoleApp/HistoricalData.csproj
 ```
 
 ### Quick Start Example
 
 ```text
-dotnet run --project HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-01T01:00:00Z --timeframe m15 --mode ticks --format csv --offset +00:00 --pool ./DataPool --output ./output --no-prompt
+dotnet run --project src/ConsoleApp/HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-01T01:00:00Z --timeframe m15 --mode ticks --format csv --offset +00:00 --pool ./DataPool --output ./output --no-prompt
 ```
 
 ### Output Files
@@ -50,7 +56,7 @@ After a successful run, output files are written to the `output` folder:
 - `--instrument` Currency pair (example: `EURUSD`)
 - `--start` Start time in ISO 8601
 - `--end` End time in ISO 8601
-- `--timeframe` `m1|m5|m15|m30|h1`
+- `--timeframe` `m1|m5|m15|m30|h1|h4|h6|d1|w1|mn1|m<minutes>`
 - `--mode` `ticks` or `direct`
 - `--format` `csv` or `csv+hst`
 - `--offset` UTC offset (example: `+02:00`)
@@ -83,7 +89,7 @@ Run without arguments to be prompted for:
 
 - Instrument (default EURUSD)
 - Start / End (ISO 8601)
-- Timeframe (m1, m5, m15, m30, h1)
+- Timeframe (m1, m5, m15, m30, h1, h4, h6, d1, w1, mn1, or m<minutes>)
 - Download mode (default Tick->M1)
 - Output format (default CSV+HST)
 - UTC offset (default +00:00)
@@ -96,14 +102,14 @@ Run without arguments to be prompted for:
 --instrument EURUSD
 --start 2025-01-01T00:00:00Z
 --end 2025-01-03T00:00:00Z
---timeframe m1|m5|m15|m30|h1
+--timeframe m1|m5|m15|m30|h1|h4|h6|d1|w1|mn1|m<minutes>
 --mode direct|ticks
 --format csv|csv+hst
 --offset +02:00
 --pool /DataPool
 --output ./output
---instruments ./Config/instruments.json
---http ./Config/http.json
+--instruments ./src/ConsoleApp/Config/instruments.json
+--http ./src/ConsoleApp/Config/http.json
 --no-refresh
 --recent-refresh-days 30
 --verify-checksum
@@ -118,7 +124,7 @@ Run without arguments to be prompted for:
 --validation-tolerance-points 1
 --use-session-calendar
 --no-session-calendar
---session-config ./Config/sessions.json
+--session-config ./src/ConsoleApp/Config/sessions.json
 --no-prompt
 --quiet
 --help
@@ -127,7 +133,7 @@ Run without arguments to be prompted for:
 ### Sample run
 
 ```text
-dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt
+dotnet run --project c:\sampleApp\HistoricalData\src\ConsoleApp\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt
 ```
 
 ### Build new timeframes from cached ticks
@@ -137,22 +143,22 @@ Yes. If tick files already exist in the data pool, you can generate a new timefr
 Example (build M15 from cached ticks):
 
 ```text
-dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt --no-refresh
+dotnet run --project c:\sampleApp\HistoricalData\src\ConsoleApp\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt --no-refresh
 ```
 
 ## Config
 
 ### Instruments
 
-[Config/instruments.json](Config/instruments.json) maps symbol to digits.
+[src/ConsoleApp/Config/instruments.json](src/ConsoleApp/Config/instruments.json) maps symbol to digits.
 
 ### HTTP
 
-[Config/http.json](Config/http.json) configures base URLs, retry, and timeout.
+[src/ConsoleApp/Config/http.json](src/ConsoleApp/Config/http.json) configures base URLs, retry, and timeout.
 
 ### Sessions
 
-[Config/sessions.json](Config/sessions.json) defines trading sessions and optional holidays.
+[src/ConsoleApp/Config/sessions.json](src/ConsoleApp/Config/sessions.json) defines trading sessions and optional holidays.
 
 ## Notes
 
@@ -199,6 +205,11 @@ DataPool/EURUSD/2025/00/01/BID_candles_min_1.bi5
 
 ## Output formats
 
+## Release
+
+- See [CHANGELOG.md](CHANGELOG.md) for release notes.
+- See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the release process.
+
 ### CSV (MT5-compatible)
 
 Each row represents one bar with these columns in order:
@@ -225,7 +236,7 @@ The HST file uses version 501 with this layout:
   spread, real volume.
 
 Times are aligned using the configured UTC offset, and prices are rounded
-to the symbol digits from Config/instruments.json.
+to the symbol digits from src/ConsoleApp/Config/instruments.json.
 
 ## Release Builds (GitHub Actions)
 
