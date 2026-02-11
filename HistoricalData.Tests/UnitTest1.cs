@@ -1,4 +1,5 @@
 using System.Text;
+using HistoricalData.Config;
 using HistoricalData.DataPool;
 using HistoricalData.Export;
 using HistoricalData.Models;
@@ -254,6 +255,26 @@ public sealed class CoreTests
                 File.Delete(metaPath);
             }
         }
+    }
+
+    [Fact]
+    public void SessionCalendar_RespectsHours()
+    {
+        var config = new SessionConfig
+        {
+            TimeZoneId = "UTC",
+            Sessions =
+            {
+                new SessionConfig.SessionRule { Day = "Monday", Start = "08:00", End = "10:00" }
+            }
+        };
+
+        var calendar = new SessionConfig.SessionCalendar(config);
+        var mondayOpen = new DateTimeOffset(2025, 1, 6, 8, 30, 0, TimeSpan.Zero);
+        var mondayClosed = new DateTimeOffset(2025, 1, 6, 10, 30, 0, TimeSpan.Zero);
+
+        Assert.True(calendar.IsOpen(mondayOpen));
+        Assert.False(calendar.IsOpen(mondayClosed));
     }
 
     private static void WriteInt32BE(Span<byte> buffer, int offset, int value)

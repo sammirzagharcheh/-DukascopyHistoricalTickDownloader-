@@ -1,3 +1,4 @@
+using HistoricalData.Config;
 using HistoricalData.Models;
 
 namespace HistoricalData.Export;
@@ -14,6 +15,7 @@ public sealed class BarAggregator
     private readonly bool _filterWeekends;
     private readonly bool _deduplicateTicks;
     private readonly bool _skipFallbackIfTicked;
+    private readonly SessionConfig.SessionCalendar? _sessionCalendar;
     private readonly DateTimeOffset _startServer;
     private readonly DateTimeOffset _endServer;
 
@@ -25,7 +27,8 @@ public sealed class BarAggregator
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         bool deduplicateTicks = true,
-        bool skipFallbackIfTicked = true)
+        bool skipFallbackIfTicked = true,
+        SessionConfig.SessionCalendar? sessionCalendar = null)
     {
         Timeframe = timeframe;
         _digits = digits;
@@ -34,6 +37,7 @@ public sealed class BarAggregator
         _filterWeekends = filterWeekends;
         _deduplicateTicks = deduplicateTicks;
         _skipFallbackIfTicked = skipFallbackIfTicked;
+        _sessionCalendar = sessionCalendar;
         _startServer = startUtc.ToOffset(utcOffset);
         _endServer = endUtc.ToOffset(utcOffset);
     }
@@ -46,6 +50,11 @@ public sealed class BarAggregator
     {
         var serverTime = tick.Time.ToOffset(_utcOffset);
         if (!IsInRange(serverTime))
+        {
+            return;
+        }
+
+        if (_sessionCalendar is not null && !_sessionCalendar.IsOpen(serverTime))
         {
             return;
         }
@@ -98,6 +107,11 @@ public sealed class BarAggregator
     {
         var serverTime = bar.Time.ToOffset(_utcOffset);
         if (!IsInRange(serverTime))
+        {
+            return false;
+        }
+
+        if (_sessionCalendar is not null && !_sessionCalendar.IsOpen(serverTime))
         {
             return false;
         }
