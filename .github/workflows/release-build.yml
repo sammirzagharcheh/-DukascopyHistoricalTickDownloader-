@@ -39,7 +39,7 @@ jobs:
 
       - name: Publish
         run: >
-          dotnet publish HistoricalData.csproj -c Release
+          dotnet publish src/ConsoleApp/HistoricalData.csproj -c Release
           -r ${{ matrix.runtime }}
           -p:SelfContained=true
           -p:PublishSingleFile=true

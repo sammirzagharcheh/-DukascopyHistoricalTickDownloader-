@@ -237,8 +237,8 @@ public static class Program
         Console.WriteLine("  --offset +02:00");
         Console.WriteLine("  --pool /DataPool");
         Console.WriteLine("  --output ./output");
-        Console.WriteLine("  --instruments ./Config/instruments.json");
-        Console.WriteLine("  --http ./Config/http.json");
+        Console.WriteLine("  --instruments ./src/ConsoleApp/Config/instruments.json");
+        Console.WriteLine("  --http ./src/ConsoleApp/Config/http.json");
         Console.WriteLine("  --no-refresh");
         Console.WriteLine("  --recent-refresh-days 30");
         Console.WriteLine("  --verify-checksum");
@@ -253,7 +253,7 @@ public static class Program
         Console.WriteLine("  --validation-tolerance-points 1");
         Console.WriteLine("  --use-session-calendar");
         Console.WriteLine("  --no-session-calendar");
-        Console.WriteLine("  --session-config ./Config/sessions.json");
+        Console.WriteLine("  --session-config ./src/ConsoleApp/Config/sessions.json");
         Console.WriteLine("  --no-prompt");
         Console.WriteLine("  --quiet");
     }

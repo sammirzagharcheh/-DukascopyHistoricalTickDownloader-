@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HistoricalData.csproj" />
+    <ProjectReference Include="..\..\src\ConsoleApp\HistoricalData.csproj" />
   </ItemGroup>
 
 </Project>

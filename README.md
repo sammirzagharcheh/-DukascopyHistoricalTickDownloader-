@@ -29,13 +29,13 @@ C# console app that downloads Dukascopy historical tick data (.bi5 LZMA), conver
 3. Run:
 
 ```text
-dotnet run --project HistoricalData.csproj
+dotnet run --project src/ConsoleApp/HistoricalData.csproj
 ```
 
 ### Quick Start Example
 
 ```text
-dotnet run --project HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-01T01:00:00Z --timeframe m15 --mode ticks --format csv --offset +00:00 --pool ./DataPool --output ./output --no-prompt
+dotnet run --project src/ConsoleApp/HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-01T01:00:00Z --timeframe m15 --mode ticks --format csv --offset +00:00 --pool ./DataPool --output ./output --no-prompt
 ```
 
 ### Output Files
@@ -102,8 +102,8 @@ Run without arguments to be prompted for:
 --offset +02:00
 --pool /DataPool
 --output ./output
---instruments ./Config/instruments.json
---http ./Config/http.json
+--instruments ./src/ConsoleApp/Config/instruments.json
+--http ./src/ConsoleApp/Config/http.json
 --no-refresh
 --recent-refresh-days 30
 --verify-checksum
@@ -118,7 +118,7 @@ Run without arguments to be prompted for:
 --validation-tolerance-points 1
 --use-session-calendar
 --no-session-calendar
---session-config ./Config/sessions.json
+--session-config ./src/ConsoleApp/Config/sessions.json
 --no-prompt
 --quiet
 --help
@@ -127,7 +127,7 @@ Run without arguments to be prompted for:
 ### Sample run
 
 ```text
-dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt
+dotnet run --project c:\sampleApp\HistoricalData\src\ConsoleApp\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt
 ```
 
 ### Build new timeframes from cached ticks
@@ -137,22 +137,22 @@ Yes. If tick files already exist in the data pool, you can generate a new timefr
 Example (build M15 from cached ticks):
 
 ```text
-dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt --no-refresh
+dotnet run --project c:\sampleApp\HistoricalData\src\ConsoleApp\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt --no-refresh
 ```
 
 ## Config
 
 ### Instruments
 
-[Config/instruments.json](Config/instruments.json) maps symbol to digits.
+[src/ConsoleApp/Config/instruments.json](src/ConsoleApp/Config/instruments.json) maps symbol to digits.
 
 ### HTTP
 
-[Config/http.json](Config/http.json) configures base URLs, retry, and timeout.
+[src/ConsoleApp/Config/http.json](src/ConsoleApp/Config/http.json) configures base URLs, retry, and timeout.
 
 ### Sessions
 
-[Config/sessions.json](Config/sessions.json) defines trading sessions and optional holidays.
+[src/ConsoleApp/Config/sessions.json](src/ConsoleApp/Config/sessions.json) defines trading sessions and optional holidays.
 
 ## Notes
 
@@ -225,7 +225,7 @@ The HST file uses version 501 with this layout:
   spread, real volume.
 
 Times are aligned using the configured UTC offset, and prices are rounded
-to the symbol digits from Config/instruments.json.
+to the symbol digits from src/ConsoleApp/Config/instruments.json.
 
 ## Release Builds (GitHub Actions)
 
