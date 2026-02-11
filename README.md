@@ -67,6 +67,9 @@ After a successful run, output files are written to the `output` folder:
 - `--no-refresh` Use cached pool files (default refresh is ON)
 - `--no-dedupe` Disable strict tick de-duplication (default is ON)
 - `--allow-fallback-overlap` Allow fallback M1 bars to merge with tick minutes
+- `--use-session-calendar` Enable session calendar filtering
+- `--no-session-calendar` Disable session calendar filtering
+- `--session-config` Path to session calendar config
 
 ### Tips
 
@@ -99,8 +102,8 @@ Run without arguments to be prompted for:
 --offset +02:00
 --pool /DataPool
 --output ./output
---instruments ./config/instruments.json
---http ./config/http.json
+--instruments ./Config/instruments.json
+--http ./Config/http.json
 --no-refresh
 --recent-refresh-days 30
 --verify-checksum
@@ -113,6 +116,9 @@ Run without arguments to be prompted for:
 --validate-m1
 --no-validate-m1
 --validation-tolerance-points 1
+--use-session-calendar
+--no-session-calendar
+--session-config ./Config/sessions.json
 --no-prompt
 --quiet
 --help
@@ -124,15 +130,29 @@ Run without arguments to be prompted for:
 dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt
 ```
 
+### Build new timeframes from cached ticks
+
+Yes. If tick files already exist in the data pool, you can generate a new timeframe without re-downloading by adding `--no-refresh`.
+
+Example (build M15 from cached ticks):
+
+```text
+dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --instrument EURUSD --start 2025-01-01T00:00:00Z --end 2025-01-03T00:00:00Z --timeframe m15 --mode ticks --format csv+hst --offset +00:00 --pool /DataPool --output ./output --no-prompt --no-refresh
+```
+
 ## Config
 
 ### Instruments
 
-[config/instruments.json](config/instruments.json) maps symbol to digits.
+[Config/instruments.json](Config/instruments.json) maps symbol to digits.
 
 ### HTTP
 
-[config/http.json](config/http.json) configures base URLs, retry, and timeout.
+[Config/http.json](Config/http.json) configures base URLs, retry, and timeout.
+
+### Sessions
+
+[Config/sessions.json](Config/sessions.json) defines trading sessions and optional holidays.
 
 ## Notes
 
@@ -149,6 +169,7 @@ dotnet run --project c:\sampleApp\HistoricalData\HistoricalData.csproj -- --inst
 - Tick minutes override fallback M1 by default; use `--allow-fallback-overlap` to merge.
 - Gap repair (missing minutes) is ON by default; use `--no-repair-gaps` to disable.
 - M1 validation is ON by default; use `--no-validate-m1` to disable.
+- Session calendar filtering is OFF by default; use `--use-session-calendar` to enable.
 
 ## Direct vs Ticks
 
@@ -204,7 +225,7 @@ The HST file uses version 501 with this layout:
   spread, real volume.
 
 Times are aligned using the configured UTC offset, and prices are rounded
-to the symbol digits from config/instruments.json.
+to the symbol digits from Config/instruments.json.
 
 ## Release Builds (GitHub Actions)
 

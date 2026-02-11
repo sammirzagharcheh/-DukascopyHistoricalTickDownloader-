@@ -68,6 +68,13 @@ public static class Program
             return 1;
         }
 
+        SessionConfig.SessionCalendar? sessionCalendar = null;
+        if (options.UseSessionCalendar)
+        {
+            var sessionConfig = SessionConfig.Load(options.SessionConfigPath);
+            sessionCalendar = new SessionConfig.SessionCalendar(sessionConfig);
+        }
+
         var aggregator = new BarAggregator(
             "m1",
             digits,
@@ -76,7 +83,8 @@ public static class Program
             startUtc,
             endUtc,
             options.DeduplicateTicks,
-            options.SkipFallbackIfTicked);
+            options.SkipFallbackIfTicked,
+            sessionCalendar);
 
         if (options.DownloadMode == DownloadMode.TickToM1)
         {
@@ -119,7 +127,8 @@ public static class Program
                 startUtc,
                 endUtc,
                 deduplicateTicks: false,
-                skipFallbackIfTicked: true);
+                skipFallbackIfTicked: true,
+                sessionCalendar: sessionCalendar);
             var repairSummary = new SummaryReport();
             await client.DownloadM1Bars(
                 options.Instrument,
@@ -158,7 +167,8 @@ public static class Program
                 startUtc,
                 endUtc,
                 deduplicateTicks: false,
-                skipFallbackIfTicked: false);
+                skipFallbackIfTicked: false,
+                sessionCalendar: sessionCalendar);
             var validateSummary = new SummaryReport();
             await client.DownloadM1Bars(
                 options.Instrument,
@@ -227,8 +237,8 @@ public static class Program
         Console.WriteLine("  --offset +02:00");
         Console.WriteLine("  --pool /DataPool");
         Console.WriteLine("  --output ./output");
-        Console.WriteLine("  --instruments ./config/instruments.json");
-        Console.WriteLine("  --http ./config/http.json");
+        Console.WriteLine("  --instruments ./Config/instruments.json");
+        Console.WriteLine("  --http ./Config/http.json");
         Console.WriteLine("  --no-refresh");
         Console.WriteLine("  --recent-refresh-days 30");
         Console.WriteLine("  --verify-checksum");
@@ -241,6 +251,9 @@ public static class Program
         Console.WriteLine("  --validate-m1");
         Console.WriteLine("  --no-validate-m1");
         Console.WriteLine("  --validation-tolerance-points 1");
+        Console.WriteLine("  --use-session-calendar");
+        Console.WriteLine("  --no-session-calendar");
+        Console.WriteLine("  --session-config ./Config/sessions.json");
         Console.WriteLine("  --no-prompt");
         Console.WriteLine("  --quiet");
     }

@@ -31,6 +31,12 @@ public static class ConsolePrompts
         var repairGaps = PromptBool("Repair gaps", options.RepairGaps);
         var validateM1 = PromptBool("Validate M1", options.ValidateM1);
         var validationTolerancePoints = PromptInt("Validation tolerance (points)", options.ValidationTolerancePoints);
+        var useSessionCalendar = PromptBool("Use session calendar", options.UseSessionCalendar);
+        var sessionConfigPath = options.SessionConfigPath;
+        if (useSessionCalendar)
+        {
+            sessionConfigPath = Prompt("Session config path", options.SessionConfigPath, defaults.SessionConfigPath);
+        }
 
         return options with
         {
@@ -50,7 +56,9 @@ public static class ConsolePrompts
             SkipFallbackIfTicked = skipFallbackIfTicked,
             RepairGaps = repairGaps,
             ValidateM1 = validateM1,
-            ValidationTolerancePoints = validationTolerancePoints
+            ValidationTolerancePoints = validationTolerancePoints,
+            UseSessionCalendar = useSessionCalendar,
+            SessionConfigPath = sessionConfigPath
         };
     }
 

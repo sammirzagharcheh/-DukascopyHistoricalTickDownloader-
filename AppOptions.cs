@@ -37,6 +37,8 @@ public sealed record AppOptions(
     bool RepairGaps,
     bool ValidateM1,
     int ValidationTolerancePoints,
+    bool UseSessionCalendar,
+    string SessionConfigPath,
     bool NonInteractive
 )
 {
@@ -50,8 +52,8 @@ public sealed record AppOptions(
         UtcOffset: TimeSpan.Zero,
         DataPoolPath: "/DataPool",
         OutputPath: "./output",
-        InstrumentsPath: "./config/instruments.json",
-        HttpConfigPath: "./config/http.json",
+        InstrumentsPath: "./Config/instruments.json",
+        HttpConfigPath: "./Config/http.json",
         Verbose: true,
         FilterWeekends: true,
         FallbackToM1: true,
@@ -63,6 +65,8 @@ public sealed record AppOptions(
         RepairGaps: true,
         ValidateM1: true,
         ValidationTolerancePoints: 1,
+        UseSessionCalendar: false,
+        SessionConfigPath: "./Config/sessions.json",
         NonInteractive: false
     );
 
@@ -95,6 +99,7 @@ public sealed record AppOptions(
         var offset = TimeSpanParser.TryParse(args.GetValueOrDefault("offset"), d.UtcOffset);
         var verbose = !args.ContainsKey("quiet");
         var nonInteractive = args.ContainsKey("no-prompt");
+        var sessionConfigPath = args.GetValueOrDefault("session-config", d.SessionConfigPath);
 
         var refreshCache = GetBool(args, "refresh", !args.ContainsKey("no-refresh"));
         var recentRefreshDays = GetInt(args, "recent-refresh-days", d.RecentRefreshDays);
@@ -104,6 +109,11 @@ public sealed record AppOptions(
         var repairGaps = GetBool(args, "repair-gaps", !args.ContainsKey("no-repair-gaps"));
         var validateM1 = GetBool(args, "validate-m1", !args.ContainsKey("no-validate-m1"));
         var validationTolerancePoints = GetInt(args, "validation-tolerance-points", d.ValidationTolerancePoints);
+        var useSessionCalendar = GetBool(args, "use-session-calendar", d.UseSessionCalendar);
+        if (args.ContainsKey("no-session-calendar"))
+        {
+            useSessionCalendar = false;
+        }
 
         return d with
         {
@@ -127,6 +137,8 @@ public sealed record AppOptions(
             RepairGaps = repairGaps,
             ValidateM1 = validateM1,
             ValidationTolerancePoints = validationTolerancePoints,
+            UseSessionCalendar = useSessionCalendar,
+            SessionConfigPath = sessionConfigPath,
             NonInteractive = nonInteractive
         };
     }
