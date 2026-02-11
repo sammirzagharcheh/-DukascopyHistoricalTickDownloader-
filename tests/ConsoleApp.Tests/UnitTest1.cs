@@ -137,6 +137,76 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void BarResampler_AggregatesToFourHoursAligned()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 10, 0, TimeSpan.Zero);
+        var bars = new List<Bar>
+        {
+            new(start, 1.1, 1.2, 1.0, 1.15, 10, 2, 3),
+            new(start.AddHours(1), 1.15, 1.25, 1.12, 1.22, 11, 2, 3),
+            new(start.AddHours(3).AddMinutes(40), 1.22, 1.3, 1.18, 1.28, 12, 3, 4),
+            new(start.AddHours(4), 1.28, 1.35, 1.2, 1.31, 9, 2, 2)
+        };
+
+        Assert.True(TimeframeUtils.TryParse("h4", out var timeframe));
+        var resampled = BarResampler.Resample(bars, timeframe);
+
+        Assert.Equal(2, resampled.Count);
+        Assert.Equal(new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), resampled[0].Time);
+        Assert.Equal(new DateTimeOffset(2025, 1, 1, 4, 0, 0, TimeSpan.Zero), resampled[1].Time);
+        Assert.Equal(33, resampled[0].Volume);
+        Assert.Equal(9, resampled[1].Volume);
+    }
+
+    [Fact]
+    public void BarResampler_AggregatesToDayAligned()
+    {
+        var bars = new List<Bar>
+        {
+            new(new DateTimeOffset(2025, 1, 2, 10, 0, 0, TimeSpan.Zero), 1.1, 1.2, 1.0, 1.15, 10, 2, 3),
+            new(new DateTimeOffset(2025, 1, 2, 20, 0, 0, TimeSpan.Zero), 1.15, 1.25, 1.12, 1.22, 11, 2, 3)
+        };
+
+        Assert.True(TimeframeUtils.TryParse("d1", out var timeframe));
+        var resampled = BarResampler.Resample(bars, timeframe);
+
+        Assert.Single(resampled);
+        Assert.Equal(new DateTimeOffset(2025, 1, 2, 0, 0, 0, TimeSpan.Zero), resampled[0].Time);
+    }
+
+    [Fact]
+    public void BarResampler_AggregatesToWeekAligned()
+    {
+        var bars = new List<Bar>
+        {
+            new(new DateTimeOffset(2025, 1, 8, 12, 0, 0, TimeSpan.Zero), 1.1, 1.2, 1.0, 1.15, 10, 2, 3),
+            new(new DateTimeOffset(2025, 1, 9, 9, 0, 0, TimeSpan.Zero), 1.15, 1.25, 1.12, 1.22, 11, 2, 3)
+        };
+
+        Assert.True(TimeframeUtils.TryParse("w1", out var timeframe));
+        var resampled = BarResampler.Resample(bars, timeframe);
+
+        Assert.Single(resampled);
+        Assert.Equal(new DateTimeOffset(2025, 1, 6, 0, 0, 0, TimeSpan.Zero), resampled[0].Time);
+    }
+
+    [Fact]
+    public void BarResampler_AggregatesToMonthAligned()
+    {
+        var bars = new List<Bar>
+        {
+            new(new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero), 1.1, 1.2, 1.0, 1.15, 10, 2, 3),
+            new(new DateTimeOffset(2025, 3, 20, 9, 0, 0, TimeSpan.Zero), 1.15, 1.25, 1.12, 1.22, 11, 2, 3)
+        };
+
+        Assert.True(TimeframeUtils.TryParse("mn1", out var timeframe));
+        var resampled = BarResampler.Resample(bars, timeframe);
+
+        Assert.Single(resampled);
+        Assert.Equal(new DateTimeOffset(2025, 3, 1, 0, 0, 0, TimeSpan.Zero), resampled[0].Time);
+    }
+
+    [Fact]
     public void CsvWriter_WritesExpectedFormat()
     {
         var path = Path.GetTempFileName();

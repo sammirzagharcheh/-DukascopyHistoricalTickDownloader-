@@ -1,10 +1,16 @@
 # HistoricalData
 
+[![CI](https://github.com/sammirzagharcheh/-DukascopyHistoricalTickDownloader-/actions/workflows/ci.yml/badge.svg)](https://github.com/sammirzagharcheh/-DukascopyHistoricalTickDownloader-/actions/workflows/ci.yml)
+
 C# console app that downloads Dukascopy historical tick data (.bi5 LZMA), converts it to MT5 bars, and exports CSV + HST (MT5 build 5430 compatible layout). Uses a local data pool to cache raw Dukascopy files for incremental updates.
 
 ## Requirements
 
 - .NET 10 SDK
+
+## CI
+
+CI runs `dotnet test` on Windows, macOS, and Linux for pull requests and pushes to `main`.
 
 ## Usage
 
@@ -50,7 +56,7 @@ After a successful run, output files are written to the `output` folder:
 - `--instrument` Currency pair (example: `EURUSD`)
 - `--start` Start time in ISO 8601
 - `--end` End time in ISO 8601
-- `--timeframe` `m1|m5|m15|m30|h1`
+- `--timeframe` `m1|m5|m15|m30|h1|h4|h6|d1|w1|mn1|m<minutes>`
 - `--mode` `ticks` or `direct`
 - `--format` `csv` or `csv+hst`
 - `--offset` UTC offset (example: `+02:00`)
@@ -83,7 +89,7 @@ Run without arguments to be prompted for:
 
 - Instrument (default EURUSD)
 - Start / End (ISO 8601)
-- Timeframe (m1, m5, m15, m30, h1)
+- Timeframe (m1, m5, m15, m30, h1, h4, h6, d1, w1, mn1, or m<minutes>)
 - Download mode (default Tick->M1)
 - Output format (default CSV+HST)
 - UTC offset (default +00:00)
@@ -96,7 +102,7 @@ Run without arguments to be prompted for:
 --instrument EURUSD
 --start 2025-01-01T00:00:00Z
 --end 2025-01-03T00:00:00Z
---timeframe m1|m5|m15|m30|h1
+--timeframe m1|m5|m15|m30|h1|h4|h6|d1|w1|mn1|m<minutes>
 --mode direct|ticks
 --format csv|csv+hst
 --offset +02:00
@@ -198,6 +204,11 @@ DataPool/EURUSD/2025/00/01/BID_candles_min_1.bi5
 - HST: SYMBOL_TIMEFRAME.hst
 
 ## Output formats
+
+## Release
+
+- See [CHANGELOG.md](CHANGELOG.md) for release notes.
+- See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the release process.
 
 ### CSV (MT5-compatible)
 
